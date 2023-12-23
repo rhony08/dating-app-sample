@@ -1,0 +1,176 @@
+{
+	"info": {
+		"_postman_id": "ae66ec6f-8703-4d9f-9df5-cc80d573dcd5",
+		"name": "Dealls",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "2821783"
+	},
+	"item": [
+		{
+			"name": "Upgrade User",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MTEsIm5hbWUiOiJ0IiwiaWF0IjoxNzAzMzM0MjA5fQ.B4gTmX5M1jhhyvNsBXHPifxjNd-bDN8jvSnlMnCWChA",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "localhost:1108/app/user/upgrade",
+					"host": [
+						"localhost"
+					],
+					"port": "1108",
+					"path": [
+						"app",
+						"user",
+						"upgrade"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Swipe to Any User",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MTEsIm5hbWUiOiJ0IiwiaWF0IjoxNzAzMzM0MjA5fQ.B4gTmX5M1jhhyvNsBXHPifxjNd-bDN8jvSnlMnCWChA",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"chosen_user_id\": 1,\r\n    \"status\": 1\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "localhost:1108/app/user/choose",
+					"host": [
+						"localhost"
+					],
+					"port": "1108",
+					"path": [
+						"app",
+						"user",
+						"choose"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Fetch all users to swipes",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MTEsIm5hbWUiOiJ0IiwiaWF0IjoxNzAzMzM0MjA5fQ.B4gTmX5M1jhhyvNsBXHPifxjNd-bDN8jvSnlMnCWChA",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"email\": \"a@b.c\",\r\n    \"password\": \"1as3d\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "localhost:1108/app/user/user-choices",
+					"host": [
+						"localhost"
+					],
+					"port": "1108",
+					"path": [
+						"app",
+						"user",
+						"user-choices"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Login",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"email\": \"a@b.c\",\r\n    \"password\": \"1as3d\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "localhost:1108/app/user/login",
+					"host": [
+						"localhost"
+					],
+					"port": "1108",
+					"path": [
+						"app",
+						"user",
+						"login"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Register",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"name\": \"t\",\r\n    \"email\": \"a@b.c\",\r\n    \"password\": \"1as3d\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "localhost:1108/app/user/register",
+					"host": [
+						"localhost"
+					],
+					"port": "1108",
+					"path": [
+						"app",
+						"user",
+						"register"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
