@@ -1,12 +1,12 @@
 import { BaseDto, Params } from '../base';
 
 @BaseDto
-export class DefaultResponseModel {
+export class DefaultResponseModel<T> {
   success: boolean;
   message: string;
-  data?: any;
+  data: T;
 
-  constructor(_: Params<DefaultResponseModel>) {
+  constructor(_: Params<DefaultResponseModel<T>>) {
     // This is intentional
   }
 }

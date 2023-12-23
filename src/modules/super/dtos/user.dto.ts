@@ -1,19 +1,30 @@
 import {
+  IsEnum,
   IsNotEmpty,
   IsNumber,
   IsString,
+  Min,
 } from 'class-validator';
+import { BaseDto } from 'src/common/base';
 
-export interface User {
+@BaseDto
+export class User {
   id: number;
   name: string;
   email: string;
   is_verify: boolean;
+
+  constructor(_: Partial<User>) {}
 }
 
 export interface LoggedIn {
   user: User;
   token: string;
+}
+
+export enum UserAction {
+  PASS = 0,
+  LIKE = 1,
 }
 
 export class CreateUserRequestDto {
@@ -38,4 +49,15 @@ export class LoginUserRequestDto {
   @IsNotEmpty()
   @IsString()
   password: string;
+}
+
+export class ChooseUserRequestDto {
+  @IsNotEmpty()
+  @IsNumber()
+  @Min(1)
+  chosen_user_id: number;
+
+  @IsNotEmpty()
+  @IsEnum(UserAction)
+  status: number;
 }

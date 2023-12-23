@@ -24,6 +24,7 @@ export class UserEntity {
     type: 'varchar',
     length: 191,
     default: null,
+    unique: true,
   })
   email: string;
 
@@ -62,7 +63,7 @@ export class UserEntity {
   })
   deleted_at: string;
 
-  @Column({ type: 'timestamp', default: () => "CURRENT_TIMESTAMP" })
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   created_at: Date;
 
   @Column({ type: 'timestamp', default: null })

@@ -3,12 +3,9 @@ import { AppModule } from './app.module';
 import { format, transports } from 'winston';
 import * as WinstonTransport from 'winston-transport';
 import { WinstonModule } from 'nest-winston';
-import { Transport } from '@nestjs/microservices';
-import { join } from 'path';
-import { SuperLogger } from './common/loggers/logger.service';
-import { Logger, VersioningType } from '@nestjs/common';
-import { ValidationPipe } from './common/pipes/validation.pipe';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { HttpExceptionFilter } from './common/exceptions/http.exception';
 
 async function bootstrap() {
   //setup winston logger
@@ -30,29 +27,17 @@ async function bootstrap() {
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   });
-  // app.useGlobalInterceptors(
-  //   new TransactionInterceptor({
-  //     default: app.get(Sequelize),
-  //   }),
-  //   new LoggerInterceptor(),
-  // );
-  // app.useGlobalFilters(new HttpExceptionFilter());
+  app.useGlobalFilters(new HttpExceptionFilter());
   app.enableShutdownHooks();
 
-  // app.useGlobalPipes(
-  //   new ValidationPipe({
-  //     transform: true,
-  //     transformOptions: { enableImplicitConversion: true },
-  //   }),
-  // );
-  // app.setGlobalPrefix(configService.get('api.prefix') || 'api');
-
-  //Set Handle gRPC Exception (Middleware)
-  // const logger = grpcServer.get(SuperLogger);
-  // grpcServer.useGlobalFilters(new GrpcExceptionFilter(logger));
 
   //Set Validationpipe for handle class-validator
-  app.useGlobalPipes(new ValidationPipe());
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true,
+      transformOptions: { enableImplicitConversion: true },
+    }),
+  );
 
   //Start server
   await app.listen(configService.get('PORT') || 5100, '0.0.0.0');

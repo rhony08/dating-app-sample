@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { APP_INTERCEPTOR } from '@nestjs/core';
 import { UserController } from './controllers/user.controller';
 import { ConfigModule } from '@nestjs/config';
 import { LoggerModule } from '../../common/loggers/logger.module';
@@ -9,14 +8,15 @@ import { IUserService } from './services/user.service.interface';
 import { UserService } from './services/user.service';
 import { IUserRepository } from './repositories/user.repo.interface';
 import { UserRepository } from './repositories/user.repo';
-import { ApmStore } from '../../common/store/apm.store';
-import { ApmInterceptor } from '../../common/interceptors/apm.interceptor';
+import { UserChoiceEntity } from './entities/user_choice.entity';
+import { IUserChoiceRepository } from './repositories/user-choice.repo.interface';
+import { UserChoiceRepository } from './repositories/user-choice.repo';
 
 @Module({
   imports: [
     ConfigModule,
     LoggerModule,
-    TypeOrmModule.forFeature([UserEntity]),
+    TypeOrmModule.forFeature([UserEntity, UserChoiceEntity]),
   ],
   controllers: [UserController],
   providers: [
@@ -29,10 +29,9 @@ import { ApmInterceptor } from '../../common/interceptors/apm.interceptor';
       useClass: UserRepository,
     },
     {
-      provide: APP_INTERCEPTOR,
-      useClass: ApmInterceptor,
+      provide: IUserChoiceRepository,
+      useClass: UserChoiceRepository,
     },
-    ApmStore,
   ],
 })
 export class UserModule {}
