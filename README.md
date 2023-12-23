@@ -6,6 +6,7 @@ When working with this file, please install ESLint on your IDE. To ensure the co
 - [Super-Codebased (gRPC)](#super-codebased-grpc)
 - [Table of contents](#table-of-contents)
   - [Installation](#installation)
+  - [How to run](#how-to-run)
   - [Project Structure](#project-structure)
   - [Let’s workarround with Codebase !](#lets-workarround-with-codebase-)
     - [**Class Validator**](#class-validator)
@@ -17,6 +18,13 @@ When working with this file, please install ESLint on your IDE. To ensure the co
 * Setup .env file with replace file extension **.env.example** to **.env** and fill the env variable as you need.
 * You can add env **IS_SEED=true** and **TOTAL_USER_SEED=30** for seeding the user data.
 * Please import Dump20231223.sql file to your mysql db.
+
+## How to run the app
+
+* After setting up .env and import the database, firstly try to install all modules with `npm install`
+* Just in case the import database failed to add composite index, you can rerun this query ``
+ALTER TABLE `user_choices` ADD UNIQUE `unique_user_chosen_submit`(`user_id`, `chose_user_id`, `submitted_date`);``
+* Then you're ready to run this app. You can run `npm run start:dev` to running the app, or `npm run test` to running the unit-test.
 
 ## Project Structure
 ├── src
