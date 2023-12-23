@@ -4,6 +4,7 @@ import {
   IsNumber,
   IsString,
   Min,
+  IsEmail,
 } from 'class-validator';
 import { BaseDto } from 'src/common/base';
 
@@ -33,7 +34,7 @@ export class CreateUserRequestDto {
   name: string;
 
   @IsNotEmpty()
-  @IsString()
+  @IsEmail()
   email: string;
 
   @IsNotEmpty()
@@ -43,7 +44,7 @@ export class CreateUserRequestDto {
 
 export class LoginUserRequestDto {
   @IsNotEmpty()
-  @IsString()
+  @IsEmail()
   email: string;
 
   @IsNotEmpty()
