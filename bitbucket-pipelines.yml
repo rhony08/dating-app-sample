@@ -1,0 +1,257 @@
+definitions:
+  steps:
+    - step: &set-environment-variables
+        name: 'set environment variables'
+        script:
+          - echo "export APP_NAME=\"$APP_NAME\"" >> envs
+          - echo "export AWS_ACCESS_KEY_ID=\"$AWS_ACCESS_KEY_ID\"" >> envs
+          - echo "export AWS_SECRET_ACCESS_KEY=\"$AWS_SECRET_ACCESS_KEY\"" >> envs
+          - echo "export BITBUCKET_CREDS=\"$BITBUCKET_CREDS\"" >> envs
+          - echo "export EKS_CLUSTER=\"$EKS_CLUSTER\"" >> envs
+          - echo "export ENV=\"$ENV\"" >> envs
+          - echo "export ESINDEX=\"$ESINDEX\"" >> envs
+          - echo "export NODE_VER=\"$NODE_VER\"" >> envs
+          - echo "export SONARQUBE_KEY=\"$SONARQUBE_KEY\"" >> envs
+          - echo "export SONARQUBE_HOST=\"$SONARQUBE_HOST\"" >> envs
+          - echo "export SONARQUBE_TOKEN=\"$SONARQUBE_TOKEN\"" >> envs
+          - echo "export CONTAINER_REGISTRY=\"$CONTAINER_REGISTRY\"" >> envs
+          - echo "export SSH_USER=\"$SSH_USER\"" >> envs
+          - echo "export SSH_HOST=\"$SSH_HOST\"" >> envs
+          - echo "export PROJECT_DIR=\"$PROJECT_DIR\"" >> envs
+          - echo "export PROJECT_PM2=\"$PROJECT_PM2\"" >> envs
+        artifacts:
+          - envs
+        runs-on:
+          - self.hosted
+          - linux.shell
+          - cloud
+
+    - step: &unit-test
+        name: 'unit test'
+        script:
+          - . envs
+          - echo "$ENV"
+          - if [ -f ~/.nvm/nvm.sh ]; then . ~/.nvm/nvm.sh; fi
+          - nvm use $NODE_VER
+          - export CODEARTIFACT_AUTH_TOKEN=`aws codeartifact get-authorization-token --domain super-packages --domain-owner 186883624092 --query authorizationToken --output text`
+          - echo "$ENV" | base64 --decode > .env
+          - CODEARTIFACT_AUTH_TOKEN=$CODEARTIFACT_AUTH_TOKEN npm install
+          - npm run test:cov
+          - tar zcf coverage.tar.gz coverage
+        artifacts:
+          - coverage.tar.gz
+        runs-on:
+          - self.hosted
+          - linux.shell
+          - cloud
+
+    - step: &sonar-scan
+        name: 'sonar scanner'
+        script:
+          - . envs
+          - echo "$SONARQUBE_KEY" && echo "$SONARQUBE_HOST" && echo "$SONARQUBE_TOKEN" && echo "$NODE_VER"
+          - if [ -f ~/.nvm/nvm.sh ]; then . ~/.nvm/nvm.sh; fi
+          - tar zxf coverage.tar.gz
+          - nvm use $NODE_VER
+          - |
+            sonar-scanner \
+              -Dsonar.javascript.node.maxspace=4096 \
+              -Dsonar.sourceEncoding="UTF-8" \
+              -Dsonar.scm.disabled=true \
+              -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info \
+              -Dsonar.projectName=$SONARQUBE_KEY \
+              -Dsonar.projectKey=$SONARQUBE_KEY \
+              -Dsonar.host.url=$SONARQUBE_HOST \
+              -Dsonar.login=$SONARQUBE_TOKEN
+        runs-on:
+          - self.hosted
+          - linux.shell
+          - cloud
+
+    - step: &check-quality-gate
+        name: 'check quality gate'
+        script:
+          - . envs
+          - echo "$APP_NAME" && echo "$AWS_ACCESS_KEY_ID" && echo "$AWS_SECRET_ACCESS_KEY" && echo "$CONTAINER_REGISTRY" && echo "$SONARQUBE_TOKEN" && echo "$SONARQUBE_HOST" && echo "$SONARQUBE_KEY"
+          - |
+            qgStatus=$(curl -s -u "$SONARQUBE_TOKEN": "$SONARQUBE_HOST/api/qualitygates/project_status?projectKey=$SONARQUBE_KEY" | jq -r .projectStatus.status)
+            metricKey=$(curl -s -u "$SONARQUBE_TOKEN": "$SONARQUBE_HOST/api/qualitygates/project_status?projectKey=$SONARQUBE_KEY" | jq -r .projectStatus.conditions | jq -c 'map(select(.status | contains("ERROR")))' | jq -r .[0].metricKey)
+            threshold=$(curl -s -u "$SONARQUBE_TOKEN": "$SONARQUBE_HOST/api/qualitygates/project_status?projectKey=$SONARQUBE_KEY" | jq -r .projectStatus.conditions | jq -c 'map(select(.status | contains("ERROR")))' | jq -r .[0].errorThreshold)
+            actualValue=$(curl -s -u "$SONARQUBE_TOKEN": "$SONARQUBE_HOST/api/qualitygates/project_status?projectKey=$SONARQUBE_KEY" | jq -r .projectStatus.conditions | jq -c 'map(select(.status | contains("ERROR")))' | jq -r .[0].actualValue)
+            if [ "$qgStatus" != "OK" ]; then
+              #echo "Quality gate is $qgStatus - exiting with error"
+              echo "Quality gate status $qgStatus. Failed at $metricKey with threshold $threshold and current value $actualValue"
+              exit 1
+            fi
+        runs-on:
+          - self.hosted
+          - linux.shell
+          - cloud
+
+    - step: &vm-deployment
+        name: 'vm deployment'
+        script:
+          - . envs
+          - export CODEARTIFACT_AUTH_TOKEN=`aws codeartifact get-authorization-token --domain super-packages --domain-owner 186883624092 --query authorizationToken --output text`
+          - echo "$PROJECT_ENV" && echo "$NODE_VER" && echo "$NPM_TOKEN" && echo "$CODEARTIFACT_AUTH_TOKEN" && echo "$SSH_USER" && echo "$SSH_HOST" && echo "$PROJECT_DIR" && echo "$PROJECT_PM2"
+          - ssh $SSH_USER@$SSH_HOST 'cd "'$PROJECT_DIR'" && pwd && git checkout . && git reset --hard HEAD && git fetch origin && git checkout "'$BITBUCKET_COMMIT'" && if [ -f ~/.nvm/nvm.sh ]; then . ~/.nvm/nvm.sh; fi && nvm use "'$NODE_VER'" && CODEARTIFACT_AUTH_TOKEN="'$CODEARTIFACT_AUTH_TOKEN'" npm install && npm run build && pm2 restart "'$PROJECT_PM2'" '
+        runs-on:
+          - self.hosted
+          - linux.shell
+          - cloud
+
+    - step: &build-container-image
+        name: 'build container image'
+        script:
+          - . envs
+          - echo "$AWS_ACCESS_KEY_ID" && echo "$AWS_SECRET_ACCESS_KEY" && echo "$NPM_TOKEN" && echo "$NODE_VER" && echo "$SUBDOMAIN" && echo "$CONTAINER_REGISTRY"
+          - export DOCKER_HOST=""
+          - rm envs
+          - export CODEARTIFACT_AUTH_TOKEN=`aws codeartifact get-authorization-token --domain super-packages --domain-owner 186883624092 --query authorizationToken --output text`
+          - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $CONTAINER_REGISTRY
+          - docker build -t $CONTAINER_REGISTRY/$APP_NAME:$BITBUCKET_COMMIT --build-arg CODEARTIFACT_AUTH_TOKEN=$CODEARTIFACT_AUTH_TOKEN  .
+          - docker push $CONTAINER_REGISTRY/$APP_NAME:$BITBUCKET_COMMIT
+          - docker rmi $CONTAINER_REGISTRY/$APP_NAME:$BITBUCKET_COMMIT
+        runs-on:
+          - self.hosted
+          - linux.shell
+          - cloud
+
+    - step: &container-scan
+        name: 'container scan'
+        script:
+          - . envs
+          - echo "$APP_NAME" && echo "$AWS_ACCESS_KEY_ID" && echo "$AWS_SECRET_ACCESS_KEY" && echo "$CONTAINER_REGISTRY"
+          - export DOCKER_HOST=""
+          - rm envs
+          - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $CONTAINER_REGISTRY
+          - trivy image --no-progress --ignore-unfixed --exit-code 0 --severity HIGH $CONTAINER_REGISTRY/$APP_NAME:$BITBUCKET_COMMIT
+          - trivy image --no-progress --ignore-unfixed --exit-code 1 --severity CRITICAL $CONTAINER_REGISTRY/$APP_NAME:$BITBUCKET_COMMIT
+        runs-on:
+          - self.hosted
+          - linux.shell
+          - cloud
+
+    - step: &kubernetes-deployment
+        name: 'deploy into kubernetes cluster'
+        script:
+          - . envs
+          - echo "$AWS_ACCESS_KEY_ID" && echo "$AWS_SECRET_ACCESS_KEY" && echo "$EKS_CLUSTER" && echo "$ENV" && echo "$CONTAINER_REGISTRY" && echo "$APP_NAME"
+          - export DOCKER_HOST=""
+          - aws eks update-kubeconfig --name $EKS_CLUSTER --region $AWS_DEFAULT_REGION
+          - helm -n core upgrade customer ./helm --install --set namespace=$NAMESPACE --set deployment.image.name=$CONTAINER_REGISTRY/$APP_NAME:$BITBUCKET_COMMIT --set secrets.env.data=$ENV --set deployment.esindex=$ESINDEX
+        runs-on:
+          - self.hosted
+          - linux.shell
+          - cloud
+
+    - step: &hook-qa-pipeline
+        name: 'hook into qa pipelines'
+        script:
+          - . envs
+          - export DOCKER_HOST=""
+          - |
+            curl -X POST -is -u $BITBUCKET_CREDS \
+              -H "Content-Type: application/json" \
+              -d '{
+                "target": {
+                  "type": "pipeline_ref_target",
+                  "ref_type": "branch",
+                  "ref_name": "main"
+                }
+              }' \
+              "https://api.bitbucket.org/2.0/repositories/aplikasisuper/api-core/pipelines/"
+        runs-on:
+          - self.hosted
+          - linux.shell
+          - cloud
+
+    - step: &hook-qa-space
+        name: 'hook into qa google space'
+        script:
+          - . envs
+          - |
+            commit_message=$(git log --format=%B -n 1 $BITBUCKET_COMMIT | sed 's/"/\\\"/g')
+            repository_name=$(basename $BITBUCKET_REPO_FULL_NAME)
+            payload="{ \"text\": \"Repository Name: $repository_name\nCommit ID: $BITBUCKET_COMMIT\nCommit Message: $commit_message\" }"
+            echo "$payload" > payload.json
+            curl -X POST https://chat.googleapis.com/v1/spaces/"$GOOGLE_SPACE_ID"/messages\?key\="$GOOGLE_SPACE_KEY"\&token\="$GOOGLE_SPACE_TOKEN"\
+                -H "Content-Type: application/json; charset=utf-8" \
+                -d @payload.json
+        runs-on:
+          - self.hosted
+          - linux.shell
+          - cloud
+
+pipelines:
+  default:
+    - step:
+        <<: *set-environment-variables
+        deployment: develop
+    - step:
+        <<: *unit-test
+    - step:
+        <<: *sonar-scan
+    - step:
+        <<: *check-quality-gate
+    ### Use this template instead for always pass default pipeline
+    # - step:
+    #     name: quality check
+    #     script:
+    #       - nvm use $NODE_VER
+    #     runs-on:
+    #       - self.hosted
+    #       - linux.shell
+    #       - cloud
+  branches:
+    workflow:
+      - step:
+          <<: *set-environment-variables
+          deployment: staging
+      - step:
+          <<: *unit-test
+      - step:
+          <<: *sonar-scan
+      - step:
+          <<: *check-quality-gate
+    develop:
+      - step:
+          <<: *set-environment-variables
+          deployment: develop
+      - step:
+          <<: *unit-test
+      - step:
+          <<: *sonar-scan
+      - step:
+          <<: *check-quality-gate
+      - step:
+          <<: *vm-deployment
+    staging:
+      - step:
+          <<: *set-environment-variables
+          deployment: staging
+      - step:
+          <<: *unit-test
+      - step:
+          <<: *sonar-scan
+      - step:
+          <<: *check-quality-gate
+      - step:
+          <<: *build-container-image
+      - step:
+          <<: *container-scan
+      - step:
+          <<: *kubernetes-deployment
+      - step:
+          <<: *hook-qa-pipeline
+      - step:
+          <<: *hook-qa-space
+    master:
+      - step:
+          <<: *set-environment-variables
+          deployment: production
+      - step:
+          <<: *build-container-image
+      - step:
+          <<: *kubernetes-deployment
+          trigger: 'manual'
