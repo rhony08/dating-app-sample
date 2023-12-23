@@ -168,20 +168,41 @@ export class UserService implements IUserService {
           lock_mode: lockmode.pessimistic_write, //--> Lock on the affected row
         };
 
+        let is_verify = user.is_verify;
+
         if (user.id == body.chosen_user_id) {
           throw new BadRequestException({
             message: 'You cant swipe to yourself',
           });
         }
-        const chosenUsers =
+        const chosenUser =
           await this.userChosenRepository.findAllUserChoiceToday(
             user.id,
             body.chosen_user_id,
           );
 
-        if (chosenUsers.length) {
+        if (chosenUser.length) {
           throw new BadRequestException({
             message: 'You cant swipe same user twice at the same day!',
+          });
+        }
+
+        if (!user.is_verify) {
+          const checkUserStatus = await this.userRepository.findUserById(
+            user.id,
+          );
+          is_verify = checkUserStatus.is_verify == 1;
+        }
+
+        const chosenUsersToday =
+          await this.userChosenRepository.findAllUserChoiceToday(user.id);
+        const maxUserToSwipePerDay =
+          (await Number(this.configSvc.get('MAX_CHOSE_PER_DAY'))) || 10;
+
+        if (!is_verify && chosenUsersToday.length >= maxUserToSwipePerDay) {
+          throw new BadRequestException({
+            message:
+              'You have used all of your quota! Please upgrade or try tomorrow!',
           });
         }
 
